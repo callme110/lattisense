@@ -241,9 +241,22 @@ inline int check_signatures(FheContext* context,
 
     check_context_for_key_signatures(*context, task_sig_json["key"]);
 
-    const auto& offline = task_sig_json["offline"];
-    auto data_sig_json = offline.empty() ? task_sig_json["online"].get<std::vector<nlohmann::json>>() :
-                                           offline.get<std::vector<nlohmann::json>>();
+    std::vector<nlohmann::json> data_sig_json;
+    auto online = task_sig_json["online"].get<std::vector<nlohmann::json>>();
+    auto offline = task_sig_json["offline"].get<std::vector<nlohmann::json>>();
+
+    // Runtime argument order is: online inputs -> offline inputs -> online outputs.
+    for (const auto& sig : online) {
+        if (sig.contains("phase") && sig["phase"].get<std::string>() == "in") {
+            data_sig_json.push_back(sig);
+        }
+    }
+    data_sig_json.insert(data_sig_json.end(), offline.begin(), offline.end());
+    for (const auto& sig : online) {
+        if (sig.contains("phase") && sig["phase"].get<std::string>() == "out") {
+            data_sig_json.push_back(sig);
+        }
+    }
 
     int n_in_args = 0;
 
